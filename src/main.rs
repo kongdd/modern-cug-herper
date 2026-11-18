@@ -82,27 +82,31 @@ fn fail(message: &str, interactive: bool) -> ExitCode {
     ExitCode::FAILURE
 }
 
-type Step = (&'static str, fn(&Path) -> io::Result<String>);
+type ReportProgress<'a> = &'a mut dyn FnMut(String);
+type Step = (&'static str, fn(&Path, ReportProgress<'_>) -> io::Result<String>);
 
 fn steps(options: &InstallOptions) -> Vec<Step> {
     let mut steps: Vec<Step> = Vec::new();
     if options.all || options.vscode {
-        steps.push(("VS Code 插件", |root| {
-            vscode::cli().and_then(|cmd| vscode::install_vsix(cmd, &root.join("pkgs")))
+        steps.push(("VS Code 插件", |root, progress| {
+            vscode::install_vsix(vscode::cli, &root.join("pkgs"), |current, total, name| {
+                progress(format!("（{current}/{total}）\n{name}"));
+            })
         }));
         #[cfg(windows)]
-        steps.push(("VS Code 配置", |root| vscode::install_config(&root.join("Code"))));
+        steps.push(("VS Code 配置", |root, _| vscode::install_config(&root.join("Code"))));
     }
     if options.all || options.pi {
-        steps
-            .push(("pi 扩展", |root| pi::install(&root.join("pi/kong-pi-extension-master.zip"))));
+        steps.push(("pi 扩展", |root, _| {
+            pi::install(&root.join("pi/kong-pi-extension-master.zip"))
+        }));
         #[cfg(windows)]
-        steps.push(("pi 剪贴板工具", |root| {
+        steps.push(("pi 剪贴板工具", |root, _| {
             pi::install_clipboard(&root.join("pi/clipboard_image.exe"))
         }));
     }
     if options.all || options.typst {
-        steps.push(("Typst 模板", |root| {
+        steps.push(("Typst 模板", |root, _| {
             typst::install(
                 &root.join("typst/modern-cug-report.typ-master.zip"),
                 &typst::package_dir()?,
@@ -123,8 +127,9 @@ fn install(
         .into_iter()
         .enumerate()
         .map(|(index, (name, run))| {
-            show_progress(format!("[{}/{total}] 正在安装 {name}…", index + 1));
-            (name, run(root))
+            let label = format!("[{}/{total}] 正在安装 {name}", index + 1);
+            show_progress(format!("{label}…"));
+            (name, run(root, &mut |detail| show_progress(format!("{label}{detail}"))))
         })
         .collect()
 }

@@ -46,9 +46,8 @@ fn installs_vscode_and_typst_and_backs_up_settings() -> io::Result<()> {
         concat!(
             "@echo off\r\n",
             "if not \"%~1\"==\"--install-extension\" exit /b 1\r\n",
-            "if not \"%~3\"==\"--install-extension\" exit /b 1\r\n",
             "if not exist \"%~2\" exit /b 1\r\n",
-            "if not exist \"%~4\" exit /b 1\r\n",
+            "if not \"%~3\"==\"\" exit /b 1\r\n",
             "exit /b 0\r\n",
         ),
     )?;
@@ -71,6 +70,10 @@ fn installs_vscode_and_typst_and_backs_up_settings() -> io::Result<()> {
         progress.lines().collect::<Vec<_>>(),
         [
             "[1/3] 正在安装 VS Code 插件…",
+            "[1/3] 正在安装 VS Code 插件（1/2）",
+            "first extension",
+            "[1/3] 正在安装 VS Code 插件（2/2）",
+            "second extension",
             "[2/3] 正在安装 VS Code 配置…",
             "[3/3] 正在安装 Typst 模板…"
         ]
@@ -122,15 +125,26 @@ fn reports_missing_vsix_and_invalid_appdata() -> io::Result<()> {
 fn reports_vsix_failure_without_skipping_settings() -> io::Result<()> {
     let sandbox = tempfile::tempdir()?;
     let root = sandbox.path();
-    write(&root.join(CODE_CLI), "@echo off\r\necho VSIX rejected 1>&2\r\nexit /b 1\r\n")?;
-    write(&root.join("pkgs/test.vsix"), "")?;
+    write(
+        &root.join(CODE_CLI),
+        concat!(
+            "@echo off\r\n",
+            "if \"%~nx2\"==\"good.vsix\" exit /b 0\r\n",
+            "echo VSIX rejected 1>&2\r\n",
+            "exit /b 1\r\n",
+        ),
+    )?;
+    write(&root.join("pkgs/bad.vsix"), "")?;
+    write(&root.join("pkgs/good.vsix"), "")?;
     write(&root.join("Code/settings.json"), "{}")?;
 
     let output = installer(root)?.arg("--vscode").output()?;
     let report = String::from_utf8_lossy(&output.stderr);
     assert_eq!(output.status.code(), Some(1), "{report}");
     assert!(
-        report.contains("VS Code 插件：失败（") && report.contains("VSIX rejected"),
+        report.contains("VS Code 插件：失败（已安装 1/2 个")
+            && report.contains("bad.vsix：")
+            && report.contains("VSIX rejected"),
         "{report}"
     );
     assert!(report.contains("VS Code 配置：已安装"), "{report}");

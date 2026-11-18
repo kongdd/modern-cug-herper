@@ -51,25 +51,52 @@ pub fn cli() -> io::Result<Command> {
     Ok(Command::new("code"))
 }
 
-pub fn install_vsix(mut command: Command, dir: &Path) -> io::Result<String> {
-    let mut count = 0;
+pub fn install_vsix(
+    command: impl Fn() -> io::Result<Command>,
+    dir: &Path,
+    mut progress: impl FnMut(usize, usize, &str),
+) -> io::Result<String> {
+    let mut packages = Vec::new();
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
         let is_vsix = entry.path().extension().is_some_and(|ext| ext.eq_ignore_ascii_case("vsix"));
-        if !entry.file_type()?.is_file() || !is_vsix {
-            continue;
+        if is_vsix && entry.file_type()?.is_file() {
+            packages.push(entry.file_name());
         }
-        command.arg("--install-extension").arg(Path::new(".").join(entry.file_name()));
-        count += 1;
     }
-    if count == 0 {
+    let total = packages.len();
+    if total == 0 {
         return Err(io::Error::other("pkgs 中没有 VSIX 文件"));
     }
-    let output = command.current_dir(dir).output()?;
-    if !output.status.success() {
-        let detail = [output.stderr, output.stdout].concat();
-        let detail: String = String::from_utf8_lossy(&detail).trim().chars().take(750).collect();
-        return Err(io::Error::other(format!("{}\n{detail}", output.status)));
+    packages.sort();
+
+    let mut failures = Vec::new();
+    for (index, file) in packages.iter().enumerate() {
+        let path = Path::new(file);
+        let name = path.file_stem().unwrap_or(file).to_string_lossy();
+        progress(index + 1, total, &name);
+        if let Err(err) = install_package(command()?, dir, path) {
+            failures.push(format!("{}：{err}", path.display()));
+        }
     }
-    Ok(format!("已安装 {count} 个"))
+
+    let installed = total - failures.len();
+    if failures.is_empty() {
+        return Ok(format!("已安装 {installed} 个"));
+    }
+    Err(io::Error::other(format!("已安装 {installed}/{total} 个\n{}", failures.join("\n"))))
+}
+
+fn install_package(mut command: Command, dir: &Path, path: &Path) -> io::Result<()> {
+    let output = command
+        .current_dir(dir)
+        .arg("--install-extension")
+        .arg(Path::new(".").join(path))
+        .output()?;
+    if output.status.success() {
+        return Ok(());
+    }
+    let detail = [output.stderr, output.stdout].concat();
+    let detail: String = String::from_utf8_lossy(&detail).trim().chars().take(750).collect();
+    Err(io::Error::other(format!("{}\n{detail}", output.status)))
 }

@@ -75,12 +75,15 @@ fn installs_multiple_vsix_in_sandbox() -> io::Result<()> {
     fs::copy("pkgs/kongdd.typst-title-numering-0.1.2.vsix", pkgs.join("first test.vsix"))?;
     fs::copy("pkgs/zenyui.vscode-pi-bridge-0.0.3.vsix", pkgs.join("second test.vsix"))?;
     let extensions = sandbox.path().join("extensions");
-    let mut cli = vscode::cli()?;
-    cli.arg("--extensions-dir")
-        .arg(&extensions)
-        .arg("--user-data-dir")
-        .arg(sandbox.path().join("user-data"));
-    install_vsix(cli, &pkgs)?;
+    let cli = || {
+        let mut cli = vscode::cli()?;
+        cli.arg("--extensions-dir")
+            .arg(&extensions)
+            .arg("--user-data-dir")
+            .arg(sandbox.path().join("user-data"));
+        Ok(cli)
+    };
+    install_vsix(cli, &pkgs, |_, _, _| {})?;
     let count =
         fs::read_dir(extensions)?.filter(|e| e.as_ref().is_ok_and(|e| e.path().is_dir())).count();
     assert_eq!(count, 2);
