@@ -14,7 +14,7 @@ fn installs_clipboard_and_preserves_user_path() -> io::Result<()> {
     // 使用临时注册表项，不写真实的 HKCU\Environment。
     let user = RegKey::predef(HKEY_CURRENT_USER);
     let name = format!(
-        "Software\\modern-cug-herper-test-{}",
+        "Software\\modern-cug-helper-test-{}",
         sandbox.path().file_name().unwrap().display()
     );
     let (key, _) = user.create_subkey(&name)?;

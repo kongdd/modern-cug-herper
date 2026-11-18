@@ -1,5 +1,5 @@
 use clap::{Args, Parser, Subcommand};
-use course_setup::{pi, typst, vscode};
+use modern_cug_helper::{pi, typst, vscode};
 use std::env;
 use std::io;
 use std::path::Path;
@@ -20,7 +20,7 @@ fn main() -> ExitCode {
     };
 
     #[cfg(windows)]
-    let _lock = match course_setup::lock_installation() {
+    let _lock = match modern_cug_helper::lock_installation() {
         Ok(lock) => lock,
         Err(err) => return fail(&format!("无法启动安装：{err}"), interactive),
     };

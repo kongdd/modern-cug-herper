@@ -3,6 +3,7 @@ pkgs
 
 /target/
 /modern-cug-herper.exe
+/modern-cug-helper.exe
 *lock*
 /tests/vscode/node_modules/
 /tests/vscode/.vscode-test/

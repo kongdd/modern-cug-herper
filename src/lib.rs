@@ -21,7 +21,7 @@ pub fn lock_installation() -> io::Result<File> {
 
     let dir = user_dir("LOCALAPPDATA")?;
     fs::create_dir_all(&dir)?;
-    // 只锁文件，不删除它，避免另一个进程锁住同名的新文件。
+    // 沿用旧文件名，与旧版互斥；只锁不删，避免另一个进程锁住同名的新文件。
     let file = OpenOptions::new()
         .read(true)
         .write(true)

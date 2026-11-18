@@ -1,13 +1,9 @@
 [package]
-name = "course-setup"
+name = "modern-cug-helper"
 version = "0.1.0"
 edition = "2024"
 publish = false
 autotests = false
-
-[[bin]]
-name = "modern-cug-herper"
-path = "src/main.rs"
 
 [[test]]
 name = "installer"

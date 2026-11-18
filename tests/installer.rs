@@ -9,7 +9,7 @@ const CODE_CLI: &str = "local/Programs/Microsoft VS Code/bin/code.cmd";
 
 fn installer(root: &Path) -> io::Result<Command> {
     let exe = root.join("installer.exe");
-    fs::copy(env!("CARGO_BIN_EXE_modern-cug-herper"), &exe)?;
+    fs::copy(env!("CARGO_BIN_EXE_modern-cug-helper"), &exe)?;
     let mut cmd = Command::new(exe);
     // 只为子进程设置环境变量，不使用本机的用户目录或 VS Code。
     cmd.env("APPDATA", root.join("appdata"))

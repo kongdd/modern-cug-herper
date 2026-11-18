@@ -7,7 +7,7 @@
 - https://github.com/CUG-hydro/modern-cug-report.typ/archive/refs/heads/master.zip
 - https://github.com/kongdd/kong-pi-extension/archive/refs/heads/master.zip
 
-**Windows x64：先安装 VS Code，再解压整个安装包，双击 `modern-cug-herper.exe`，点「确定」。**
+**Windows x64：先安装 VS Code，再解压整个安装包，双击 `modern-cug-helper.exe`，点「确定」。**
 安装无需关闭 VS Code。安装后，在 VS Code 命令面板执行 `Developer: Reload Window`。
 安装后在 pi 中执行 `/reload` 即可加载扩展。
 
@@ -23,11 +23,11 @@ Windows 下还会覆盖 `%APPDATA%\Code\User` 中与 `Code/` 同名的文件；�
 ## 命令行
 
 ```text
-modern-cug-herper install --all
-modern-cug-herper install --vscode
-modern-cug-herper install --pi --typst
-modern-cug-herper install --help
+modern-cug-helper install --all
+modern-cug-helper install --vscode
+modern-cug-helper install --pi --typst
+modern-cug-helper install --help
 ```
 
 命令行指定组件后直接安装，在控制台显示进度，不弹窗。使用 Windows 分发包时，在 PowerShell 中运行
-`.\modern-cug-herper.exe install --all`。双击安装方式不变。
+`.\modern-cug-helper.exe install --all`。双击安装方式不变。
