@@ -4,66 +4,99 @@
 	// $1, $2 for tab stops, $0 for the final cursor position, and ${1:label}, ${2:another} for placeholders. Placeholders with the 
 	// same ids are connected.
 	// Example:
-	"foreach": {
-		"prefix": "foreach",
-		"body": [
-			"foreach($1, i = icount()) %do% {\n}",
-			"$2"
-		],
-		"description": "foreach"
-	}, 
-	"file.exists": {
-		"prefix": "file.exists",
-		"body": [
-			"if (!file.exists(file)) {\n\t$1\n} else {\n\t\n}"
-		], 
-		"description": "snippets of file.exists"
-	},
-	"tryCatch": {
-		"prefix": "tryCatch",
-		"body": [
-			"tryCatch({\n\t$1\n}, error = function(e) {\n\tmessage(sprintf('%s', e$$message))",
-			"})$2"
-		],
-		"description": "foreach"
-	},
-	"browser": {
-		"prefix": ["browser"],
-		"body": [
-			"browser()"
-		],
-		"description": "browser"
-	},
-	"library": {
-		"prefix": [
-			"library"
-		],
-		"body": [
-			"library($0)"
-		],
-		"description": "library"
-	},
-	"source": {
-		"prefix": [
-			"source"
-		],
-		"body": [
-			"#! /usr/bin/Rscript --no-init-file",
-			"# Dongdong Kong ----------------------------------------------------------------",
-			"# Copyright (c) 2021 Dongdong Kong. All rights reserved.",
-			// "# This work is licensed under the terms of the MIT license.", 
-			// "# For a copy, see <https://opensource.org/licenses/MIT>.",
-			"# source('scripts/main_pkgs.R')", 
-			"$0"
-		],
-		"description": "source"
-	}
-	// "%do%": {
-	// 	"key": "ctrl+alt+d",
-	// 	"command": "editor.action.insertSnippet",
-	// 	"when": "editorTextFocus",
-	// 	"args": {
-	// 		"snippet": "%do%"
-	// 	}
-	// }
+	"styler": {
+    "prefix": "\\styler",
+    "body": [
+      "# styler: off"
+    ]
+  },
+  "p_load": {
+    "prefix": "\\p_load",
+    "body": [
+      "# %%",
+      "pacman::p_load(Ipaper, data.table, dplyr, lubridate)",
+      "",
+      "# %%",
+      "$1",
+    ]
+  },
+  "for": {
+    "prefix": "\\for",
+    "body": [
+      "for (i in seq_along($1)) {",
+      "\tcat(sprintf('[%2d] \\n', i))",
+      "}"
+    ],
+    "description": "for self"
+  },
+  "foreach": {
+    "prefix": "\\foreach",
+    "body": [
+      "foreach($1, i = icount()) %do% {\n}",
+      "$2"
+    ],
+    "description": "foreach"
+  },
+  "write_fig": {
+    "prefix": "\\write_fig",
+    "body": [
+      "write_fig(p$1, 'd:/Rplot.pdf', 10, 5)", //{\n\t$1\n}
+    ],
+  },
+  "file.exists": {
+    "prefix": "file.exists",
+    "body": [
+      "file.exists(file) && next"
+    ],
+    "description": "snippets of file.exists"
+  },
+  "tryCatch": {
+    "prefix": "\\tryCatch",
+    "body": [
+      "tryCatch({\n\t$1\n}, error = function(e) {\n\tmessage(sprintf('%s', e$$message))",
+      "})$2"
+    ],
+    "description": "foreach"
+  },
+  "browser": {
+    "prefix": [
+      "\\browser"
+    ],
+    "body": [
+      "browser()"
+    ],
+    "description": "browser"
+  },
+  "library": {
+    "prefix": [
+      "\\library"
+    ],
+    "body": [
+      "library($0)"
+    ],
+    "description": "library"
+  },
+  "source": {
+    "prefix": [
+      "\\source"
+    ],
+    "body": [
+      "#! /usr/bin/Rscript --no-init-file",
+      "# Dongdong Kong ----------------------------------------------------------------",
+      "# Copyright (c) 2026 Dongdong Kong. All rights reserved.",
+      // "# This work is licensed under the terms of the MIT license.", 
+      // "# For a copy, see <https://opensource.org/licenses/MIT>.",
+      "# source('scripts/main_pkgs.R')",
+      "$0"
+    ],
+    "description": "source"
+  }
+  // "%do%": {
+  // 	"key": "ctrl+alt+d",
+  // 	"command": "editor.action.insertSnippet",
+  // 	"when": "editorTextFocus",
+  // 	"args": {
+  // 		"snippet": "%do%"
+  // 	}
+  // }
 }
