@@ -1,7 +1,7 @@
 # 课程环境安装器
 
 [![CI](https://github.com/kongdd/modern-cug-herper/actions/workflows/ci.yml/badge.svg)](https://github.com/kongdd/modern-cug-herper/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/kongdd/modern-cug-herper/branch/main/graph/badge.svg)](https://codecov.io/gh/kongdd/modern-cug-herper)
+[![codecov](https://codecov.io/gh/kongdd/modern-cug-herper/branch/master/graph/badge.svg)](https://codecov.io/gh/kongdd/modern-cug-herper)
 
 
 - https://github.com/CUG-hydro/modern-cug-report.typ/archive/refs/heads/master.zip
@@ -34,6 +34,18 @@ modern-cug-herper install --help
 
 Linux/macOS 版在终端运行，需确保 `code` 在 PATH 中；不覆盖 VS Code 用户配置。
 当前资源中的 Tinymist VSIX 是 Windows x64 版；给其他平台分发前要换成对应版本。
+
+## VS Code 片段测试
+
+在 Windows x64 上准备好 Node.js 22+ 和 `pkgs/` 中的 Tinymist VSIX，然后运行：
+
+```sh
+npm --prefix tests/vscode install --no-package-lock
+npm --prefix tests/vscode test
+```
+
+首次运行会下载 VS Code。测试在临时配置中验证 Typst 片段的展开和光标位置，
+不会修改日常使用的 VS Code 配置。GitHub Actions 也会运行此测试。
 
 ## Typst 编译测试
 

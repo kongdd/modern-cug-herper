@@ -3,3 +3,6 @@ pkgs
 
 /target/
 *lock*
+/tests/vscode/node_modules/
+/tests/vscode/.vscode-test/
+/tests/vscode/.profile-*/

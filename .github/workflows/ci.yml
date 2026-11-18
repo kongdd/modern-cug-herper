@@ -34,6 +34,24 @@ jobs:
       - run: cargo test compiles_typst_with_installed_package -- --ignored
       - run: cargo test unpacks_bundled_pi_extensions -- --ignored
 
+  vscode-snippets:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Download Tinymist VSIX
+        shell: bash
+        run: |
+          url=https://github.com/Myriad-Dreamin/tinymist/releases/download/v0.15.12
+          curl --fail --location --retry 3 --create-dirs \
+            --output pkgs/myriad-dreamin.tinymist-0.15.12-win32-x64.vsix \
+            "$url/tinymist-win32-x64.vsix"
+      - run: npm --prefix tests/vscode install --no-package-lock
+      - run: npm --prefix tests/vscode test
+
   coverage:
     runs-on: windows-latest
     steps:
