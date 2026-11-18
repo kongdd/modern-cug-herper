@@ -1,11 +1,14 @@
-use crate::{copy_tree, home, unpack_zip};
+use crate::{copy_file, copy_tree, ensure_dir, home, unpack_zip};
 use std::io;
 use std::path::Path;
 
 pub fn install(path: &Path) -> io::Result<String> {
     let extracted = unpack_zip(path)?;
-    let extensions = extracted.path().join("kong-pi-extension-master/extensions");
-    copy_tree(&extensions, &home()?.join(".pi/agent/extensions"), None)?;
+    let source = extracted.path().join("kong-pi-extension-master");
+    let agent = home()?.join(".pi/agent");
+    ensure_dir(&agent)?;
+    copy_tree(&source.join("extensions"), &agent.join("extensions"), None)?;
+    copy_file(&source.join("keybindings.json"), &agent, None)?;
     Ok("已安装".into())
 }
 
@@ -27,7 +30,7 @@ pub fn install_clipboard(source: &Path) -> io::Result<String> {
 
 #[cfg(windows)]
 fn copy_clipboard(source: &Path, bin: &Path) -> io::Result<()> {
-    crate::ensure_dir(bin)?;
+    ensure_dir(bin)?;
     let temp = tempfile::NamedTempFile::new_in(bin)?;
     std::fs::copy(source, temp.path())
         .map_err(|err| io::Error::other(format!("{}：{err}", source.display())))?;

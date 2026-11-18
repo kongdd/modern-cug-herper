@@ -98,34 +98,42 @@ pub(crate) fn copy_tree(
         let name = entry.file_name();
         let source_path = entry.path();
         let target = destination.join(&name);
-        let kind = entry.file_type()?;
-
-        if kind.is_dir() {
+        if entry.file_type()?.is_dir() {
             let backup_subdir = backup_dir.map(|dir| dir.join(&name));
             copy_tree(&source_path, &target, backup_subdir.as_deref())?;
             continue;
         }
-        if !kind.is_file() {
-            return Err(io::Error::other(format!("不是普通文件：{}", source_path.display())));
-        }
-
-        match fs::symlink_metadata(&target) {
-            Ok(meta) if meta.is_file() => {
-                if let Some(dir) = backup_dir {
-                    fs::create_dir_all(dir)?;
-                    fs::copy(&target, dir.join(&name))?;
-                }
-            }
-            Ok(_) => return Err(io::Error::other(format!("不能覆盖：{}", target.display()))),
-            Err(err) if err.kind() == io::ErrorKind::NotFound => {}
-            Err(err) => return Err(err),
-        }
-
-        // 复制成功后才替换目标，避免留下只写了一部分的文件。
-        let temp = tempfile::NamedTempFile::new_in(destination)?;
-        fs::copy(source_path, temp.path())?;
-        temp.persist(target)?;
+        copy_file(&source_path, destination, backup_dir)?;
     }
+    Ok(())
+}
+
+pub(crate) fn copy_file(
+    source: &Path,
+    destination: &Path,
+    backup_dir: Option<&Path>,
+) -> io::Result<()> {
+    if !fs::symlink_metadata(source)?.is_file() {
+        return Err(io::Error::other(format!("不是普通文件：{}", source.display())));
+    }
+    let name = source.file_name().unwrap();
+    let target = destination.join(name);
+    match fs::symlink_metadata(&target) {
+        Ok(meta) if meta.is_file() => {
+            if let Some(dir) = backup_dir {
+                fs::create_dir_all(dir)?;
+                fs::copy(&target, dir.join(name))?;
+            }
+        }
+        Ok(_) => return Err(io::Error::other(format!("不能覆盖：{}", target.display()))),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => {}
+        Err(err) => return Err(err),
+    }
+
+    // 复制成功后才替换目标，避免留下只写了一部分的文件。
+    let temp = tempfile::NamedTempFile::new_in(destination)?;
+    fs::copy(source, temp.path())?;
+    temp.persist(target)?;
     Ok(())
 }
 

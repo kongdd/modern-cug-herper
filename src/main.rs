@@ -8,6 +8,8 @@ use std::process::ExitCode;
 #[cfg(windows)]
 mod winui;
 
+const RELOAD_HINT: &str = "若 VS Code 已打开，请执行 Developer: Reload Window。";
+
 fn main() -> ExitCode {
     let (options, interactive) = match Cli::parse().command {
         Some(Action::Install(options)) => (options, false),
@@ -32,38 +34,18 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
+    let steps = steps(&options);
     #[cfg(windows)]
-    let progress = if interactive {
-        match winui::Progress::open() {
-            Ok(progress) => Some(progress),
-            Err(err) => return fail(&format!("无法打开安装进度窗口：{err}"), true),
-        }
-    } else {
-        None
-    };
-    let results = install(&root, &options, |_completed, _total, text| {
-        #[cfg(windows)]
-        if let Some(progress) = &progress {
-            progress.update(_completed, _total, text);
-            return;
-        }
-        eprintln!("{text}");
-    });
-    #[cfg(windows)]
-    drop(progress);
-
-    let ok = results.iter().all(|(_, result)| result.is_ok());
-    let report: Vec<_> = results
-        .into_iter()
-        .map(|(name, result)| match result {
-            Ok(detail) => format!("{name}：{detail}"),
-            Err(err) => format!("{name}：失败（{err}）"),
-        })
-        .collect();
-    let mut report = report.join("\n\n");
-    if options.all || options.vscode {
-        report.push_str("\n\n若 VS Code 已打开，请执行 Developer: Reload Window。");
+    if interactive {
+        return match winui::run(root, steps) {
+            Ok(true) => ExitCode::SUCCESS,
+            Ok(false) => ExitCode::FAILURE,
+            Err(err) => fail(&format!("安装窗口出错：{err}"), true),
+        };
     }
+
+    let results = install(&root, steps, |text| eprintln!("{text}"));
+    let (ok, report) = summary(results, options.all || options.vscode);
     if interactive {
         dialog(&report, false);
     } else if ok {
@@ -72,6 +54,23 @@ fn main() -> ExitCode {
         eprintln!("{report}");
     }
     if ok { ExitCode::SUCCESS } else { ExitCode::FAILURE }
+}
+
+fn summary(results: Vec<(&str, io::Result<String>)>, reload_hint: bool) -> (bool, String) {
+    let ok = results.iter().all(|(_, result)| result.is_ok());
+    let report: Vec<_> = results
+        .into_iter()
+        .map(|(name, result)| match result {
+            Ok(detail) => format!("{name}：{detail}"),
+            Err(err) => format!("{name}：失败（{err}）"),
+        })
+        .collect();
+    let mut report = report.join("\n");
+    if reload_hint {
+        report.push('\n');
+        report.push_str(RELOAD_HINT);
+    }
+    (ok, report)
 }
 
 fn fail(message: &str, interactive: bool) -> ExitCode {
@@ -83,12 +82,9 @@ fn fail(message: &str, interactive: bool) -> ExitCode {
     ExitCode::FAILURE
 }
 
-fn install(
-    root: &Path,
-    options: &InstallOptions,
-    mut show_progress: impl FnMut(usize, usize, &str),
-) -> Vec<(&'static str, io::Result<String>)> {
-    type Step = (&'static str, fn(&Path) -> io::Result<String>);
+type Step = (&'static str, fn(&Path) -> io::Result<String>);
+
+fn steps(options: &InstallOptions) -> Vec<Step> {
     let mut steps: Vec<Step> = Vec::new();
     if options.all || options.vscode {
         steps.push(("VS Code 插件", |root| {
@@ -114,12 +110,20 @@ fn install(
         }));
     }
 
+    steps
+}
+
+fn install(
+    root: &Path,
+    steps: Vec<Step>,
+    mut show_progress: impl FnMut(String),
+) -> Vec<(&'static str, io::Result<String>)> {
     let total = steps.len();
     steps
         .into_iter()
         .enumerate()
         .map(|(index, (name, run))| {
-            show_progress(index, total, &format!("[{}/{total}] 正在安装 {name}…", index + 1));
+            show_progress(format!("[{}/{total}] 正在安装 {name}…", index + 1));
             (name, run(root))
         })
         .collect()
@@ -169,13 +173,11 @@ fn detach_console() {
 
 #[cfg(windows)]
 fn dialog(text: &str, confirm: bool) -> bool {
-    use windows_sys::Win32::UI::{HiDpi, WindowsAndMessaging as win};
+    use windows_sys::Win32::UI::WindowsAndMessaging as win;
     let wide = |s: &str| s.encode_utf16().chain([0]).collect::<Vec<_>>();
     let style = if confirm { win::MB_OKCANCEL | win::MB_DEFBUTTON2 } else { win::MB_OK };
-    // 使用屏幕实际 DPI 绘制弹窗，避免 Windows 放大位图。
-    // SAFETY: DPI 上下文是预定义值，两个 UTF-16 字符串在调用期间有效。
+    // SAFETY: 两个 UTF-16 字符串在调用期间有效。
     let answer = unsafe {
-        HiDpi::SetThreadDpiAwarenessContext(HiDpi::DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
         win::MessageBoxW(
             std::ptr::null_mut(),
             wide(text).as_ptr(),

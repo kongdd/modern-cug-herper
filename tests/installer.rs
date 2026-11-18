@@ -139,12 +139,18 @@ fn reports_vsix_failure_without_skipping_settings() -> io::Result<()> {
 }
 
 #[test]
-fn installs_pi_extensions_even_if_clipboard_helper_is_missing() -> io::Result<()> {
+fn installs_pi_extensions_and_overwrites_keybindings_even_without_clipboard() -> io::Result<()> {
     let sandbox = tempfile::tempdir()?;
     let root = sandbox.path();
+    let agent = root.join("home/.pi/agent");
+    let keybindings = agent.join("keybindings.json");
+    write(&keybindings, r#"{"old":"ctrl+x"}"#)?;
     write_zip(
         &root.join("pi/kong-pi-extension-master.zip"),
-        &[("kong-pi-extension-master/extensions/Friday/index.ts", "extension")],
+        &[
+            ("kong-pi-extension-master/extensions/Friday/index.ts", "extension"),
+            ("kong-pi-extension-master/keybindings.json", "{}"),
+        ],
     )?;
 
     let output = installer(root)?.arg("--pi").output()?;
@@ -152,11 +158,9 @@ fn installs_pi_extensions_even_if_clipboard_helper_is_missing() -> io::Result<()
     assert_eq!(output.status.code(), Some(1), "{report}");
     assert!(report.contains("pi 扩展：已安装"), "{report}");
     assert!(report.contains("pi 剪贴板工具：失败") && report.contains("clipboard_image.exe"));
-    assert!(root.join("home/.pi/agent/bin").is_dir());
-    assert_eq!(
-        fs::read_to_string(root.join("home/.pi/agent/extensions/Friday/index.ts"))?,
-        "extension"
-    );
+    assert!(agent.join("bin").is_dir());
+    assert_eq!(fs::read_to_string(agent.join("extensions/Friday/index.ts"))?, "extension");
+    assert_eq!(fs::read_to_string(keybindings)?, "{}");
     Ok(())
 }
 
