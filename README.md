@@ -25,33 +25,3 @@ modern-cug-herper install --help
 
 命令行指定组件后直接安装，不弹窗。使用 Windows 分发包时，在 PowerShell 中运行
 `.\modern-cug-herper.exe install --all`。双击安装方式不变。
-
-## 构建与分发
-
-维护者在 Windows x64 上准备好 `pkgs/` 中的 VSIX 和 `pi/`、`typst/` 下的安装 ZIP，
-运行 `.\build.ps1`，生成 `target/课程环境安装-Windows-x64.zip`。
-学生只需解压发布包并双击 `modern-cug-herper.exe`，不用运行 PowerShell 脚本。
-
-Linux/macOS 版在终端运行，需确保 `code` 在 PATH 中；不覆盖 VS Code 用户配置。
-当前资源中的 Tinymist VSIX 是 Windows x64 版；给其他平台分发前要换成对应版本。
-
-## VS Code 片段测试
-
-在 Windows x64 上准备好 Node.js 22+ 和 `pkgs/` 中的 Tinymist VSIX，然后运行：
-
-```sh
-npm --prefix tests/vscode install --no-package-lock
-npm --prefix tests/vscode test
-```
-
-首次运行会下载 VS Code。测试在临时配置中验证 Typst 片段的展开和光标位置，
-不会修改日常使用的 VS Code 配置。GitHub Actions 也会运行此测试。
-
-## Typst 编译测试
-
-```sh
-cargo test compiles_typst_with_installed_package -- --ignored
-```
-
-需将 `typst` 加入 PATH，并准备随包分发的 Typst ZIP。测试在临时目录安装本地包并编译
-`tests/test.typ`；若未缓存 `@preview` 依赖，首次编译需要联网。
