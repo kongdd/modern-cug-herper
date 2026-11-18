@@ -15,6 +15,69 @@ pub(crate) fn user_dir(var: &str) -> io::Result<PathBuf> {
         .ok_or_else(|| io::Error::other(format!("找不到用户目录：{var}")))
 }
 
+#[cfg(windows)]
+pub fn lock_installation() -> io::Result<File> {
+    use std::fs::{OpenOptions, TryLockError};
+
+    let dir = user_dir("LOCALAPPDATA")?;
+    fs::create_dir_all(&dir)?;
+    // 只锁文件，不删除它，避免另一个进程锁住同名的新文件。
+    let file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(dir.join("modern-cug-herper.lock"))?;
+    match file.try_lock() {
+        Ok(()) => Ok(file),
+        Err(TryLockError::WouldBlock) => {
+            Err(io::Error::new(io::ErrorKind::WouldBlock, "已有安装程序正在运行，请等待完成。"))
+        }
+        Err(TryLockError::Error(err)) => Err(err),
+    }
+}
+
+#[cfg(windows)]
+pub(crate) fn add_to_path(environment: &winreg::RegKey, dir: &Path) -> io::Result<bool> {
+    use std::ffi::{OsStr, OsString};
+    use winreg::enums::{REG_EXPAND_SZ, REG_SZ};
+    use winreg::types::{FromRegValue, ToRegValue};
+
+    let contains = |path: &OsStr| {
+        env::split_paths(path).any(|entry| {
+            entry
+                .iter()
+                .map(OsStr::to_ascii_lowercase)
+                .eq(dir.iter().map(OsStr::to_ascii_lowercase))
+        })
+    };
+    if env::var_os("PATH").is_some_and(|path| contains(&path)) {
+        return Ok(false);
+    }
+
+    let (mut path, kind) = match environment.get_raw_value("Path") {
+        Ok(value) if matches!(value.vtype, REG_SZ | REG_EXPAND_SZ) => {
+            (OsString::from_reg_value(&value)?, value.vtype)
+        }
+        Ok(_) => return Err(io::Error::other("用户 PATH 不是字符串，未修改")),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => (OsString::new(), REG_SZ),
+        Err(err) => return Err(err),
+    };
+    if contains(&path) {
+        return Ok(false);
+    }
+
+    // 保留原有条目和 REG_EXPAND_SZ 类型，不展开其中的变量。
+    if !path.is_empty() && !path.as_encoded_bytes().ends_with(b";") {
+        path.push(";");
+    }
+    path.push(env::join_paths([dir]).map_err(io::Error::other)?);
+    let mut value = path.to_reg_value();
+    value.vtype = kind;
+    environment.set_raw_value("Path", &value)?;
+    Ok(true)
+}
+
 pub(crate) fn ensure_dir(path: &Path) -> io::Result<()> {
     if fs::symlink_metadata(path).is_ok_and(|meta| !meta.is_dir()) {
         return Err(io::Error::other(format!("不是普通目录：{}", path.display())));

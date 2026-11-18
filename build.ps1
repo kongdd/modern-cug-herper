@@ -12,9 +12,11 @@ try {
 
     cargo build --release --target $target --target-dir target
     if ($LASTEXITCODE) { throw '构建失败。' }
+    Copy-Item -LiteralPath "target/$target/release/modern-cug-herper.exe" -Destination . -Force
 
     tar.exe -a -cf $temp --options zip:hdrcharset=UTF-8 Code README.md @vsix `
-        pi/kong-pi-extension-master.zip typst/modern-cug-report.typ-master.zip `
+        pi/kong-pi-extension-master.zip pi/clipboard_image.exe `
+        typst/modern-cug-report.typ-master.zip `
         -C "target/$target/release" modern-cug-herper.exe
     if ($LASTEXITCODE) { throw '打包失败。' }
     Move-Item -LiteralPath $temp -Destination $zip -Force

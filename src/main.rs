@@ -8,27 +8,24 @@ use std::process::ExitCode;
 fn main() -> ExitCode {
     let (options, interactive) = match Cli::parse().command {
         Some(Action::Install(options)) => (options, false),
-        None => {
-            detach_console();
-            (InstallOptions { all: true, ..Default::default() }, true)
-        }
+        None => (InstallOptions { all: true, ..Default::default() }, true),
+    };
+
+    #[cfg(windows)]
+    let _lock = match course_setup::lock_installation() {
+        Ok(lock) => lock,
+        Err(err) => return fail(&format!("无法启动安装：{err}"), interactive),
     };
 
     let Ok(mut root) = env::current_exe() else {
-        let message = "无法定位安装程序所在目录。";
-        if interactive {
-            dialog(message, false);
-        } else {
-            eprintln!("{message}");
-        }
-        return ExitCode::FAILURE;
+        return fail("无法定位安装程序所在目录。", interactive);
     };
     root.pop();
 
     if interactive
         && !dialog(
-            "将为当前用户安装课程环境。建议先关闭 VS Code 和 pi。\n\
-         确认后请等待结果窗口，不要重复运行。",
+            "将为当前用户安装课程环境。建议先关闭 VS Code。\n\
+         确认后可在控制台查看安装进度。",
             true,
         )
     {
@@ -46,6 +43,7 @@ fn main() -> ExitCode {
         .collect();
     let report = report.join("\n\n");
     if interactive {
+        detach_console();
         dialog(&report, false);
     } else if ok {
         println!("{report}");
@@ -55,24 +53,52 @@ fn main() -> ExitCode {
     if ok { ExitCode::SUCCESS } else { ExitCode::FAILURE }
 }
 
+fn fail(message: &str, interactive: bool) -> ExitCode {
+    if interactive {
+        detach_console();
+        dialog(message, false);
+    } else {
+        eprintln!("{message}");
+    }
+    ExitCode::FAILURE
+}
+
 fn install(root: &Path, options: &InstallOptions) -> Vec<(&'static str, io::Result<String>)> {
-    let mut results = Vec::new();
+    type Step = (&'static str, fn(&Path) -> io::Result<String>);
+    let mut steps: Vec<Step> = Vec::new();
     if options.all || options.vscode {
-        let plugins = vscode::cli().and_then(|cmd| vscode::install_vsix(cmd, &root.join("pkgs")));
-        results.push(("VS Code 插件", plugins));
+        steps.push(("VS Code 插件", |root| {
+            vscode::cli().and_then(|cmd| vscode::install_vsix(cmd, &root.join("pkgs")))
+        }));
         #[cfg(windows)]
-        results.push(("VS Code 配置", vscode::install_config(&root.join("Code"))));
+        steps.push(("VS Code 配置", |root| vscode::install_config(&root.join("Code"))));
     }
     if options.all || options.pi {
-        results.push(("pi 扩展", pi::install(&root.join("pi/kong-pi-extension-master.zip"))));
+        steps
+            .push(("pi 扩展", |root| pi::install(&root.join("pi/kong-pi-extension-master.zip"))));
+        #[cfg(windows)]
+        steps.push(("pi 剪贴板工具", |root| {
+            pi::install_clipboard(&root.join("pi/clipboard_image.exe"))
+        }));
     }
     if options.all || options.typst {
-        let templates = typst::package_dir().and_then(|target| {
-            typst::install(&root.join("typst/modern-cug-report.typ-master.zip"), &target)
-        });
-        results.push(("Typst 模板", templates));
+        steps.push(("Typst 模板", |root| {
+            typst::install(
+                &root.join("typst/modern-cug-report.typ-master.zip"),
+                &typst::package_dir()?,
+            )
+        }));
     }
-    results
+
+    let total = steps.len();
+    steps
+        .into_iter()
+        .enumerate()
+        .map(|(index, (name, run))| {
+            eprintln!("[{}/{total}] 正在安装 {name}…", index + 1);
+            (name, run(root))
+        })
+        .collect()
 }
 
 #[derive(Parser)]
@@ -109,7 +135,7 @@ struct InstallOptions {
 }
 
 fn detach_console() {
-    // 双击时只保留安装弹窗，命令行模式则保留控制台。
+    // 双击安装结束后只保留结果弹窗；命令行模式不分离控制台。
     #[cfg(windows)]
     // FreeConsole 不接收指针，只分离当前进程。
     unsafe {
@@ -119,11 +145,13 @@ fn detach_console() {
 
 #[cfg(windows)]
 fn dialog(text: &str, confirm: bool) -> bool {
-    use windows_sys::Win32::UI::WindowsAndMessaging as win;
+    use windows_sys::Win32::UI::{HiDpi, WindowsAndMessaging as win};
     let wide = |s: &str| s.encode_utf16().chain([0]).collect::<Vec<_>>();
     let style = if confirm { win::MB_OKCANCEL | win::MB_DEFBUTTON2 } else { win::MB_OK };
-    // Both UTF-16 strings live until the dialog closes.
+    // 使用屏幕实际 DPI 绘制弹窗，避免 Windows 放大位图。
+    // SAFETY: DPI 上下文是预定义值，两个 UTF-16 字符串在调用期间有效。
     let answer = unsafe {
+        HiDpi::SetThreadDpiAwarenessContext(HiDpi::DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
         win::MessageBoxW(
             std::ptr::null_mut(),
             wide(text).as_ptr(),

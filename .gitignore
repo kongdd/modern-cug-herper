@@ -2,6 +2,7 @@ pkgs
 *.zip
 
 /target/
+/modern-cug-herper.exe
 *lock*
 /tests/vscode/node_modules/
 /tests/vscode/.vscode-test/

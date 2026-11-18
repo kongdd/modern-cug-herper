@@ -1,5 +1,15 @@
 # 维护者测试指南
 
+## Rust 覆盖率
+
+使用 Windows MSVC 工具链（需安装 `llvm-tools-preview` 和 `cargo-llvm-cov`）运行：
+
+```sh
+cargo +stable-msvc llvm-cov --show-missing-lines
+```
+
+安装器集成测试在临时目录运行，无需下载 VSIX 或 ZIP，也不会调用本机 VS Code。
+
 ## VS Code 片段测试
 
 在 Windows x64 上准备好 Node.js 22+ 和 `pkgs/` 中的 Tinymist VSIX，从仓库根目录运行：

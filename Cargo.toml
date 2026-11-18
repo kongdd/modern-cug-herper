@@ -9,13 +9,22 @@ autotests = false
 name = "modern-cug-herper"
 path = "src/main.rs"
 
+[[test]]
+name = "installer"
+path = "tests/installer.rs"
+
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
 tempfile = "3"
 zip = { version = "9.7", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_System_Console", "Win32_UI_WindowsAndMessaging"] }
+winreg = "0.56"
+windows-sys = { version = "0.61", features = [
+    "Win32_System_Console",
+    "Win32_UI_HiDpi",
+    "Win32_UI_WindowsAndMessaging",
+] }
 
 [profile.release]
 opt-level = "z"
