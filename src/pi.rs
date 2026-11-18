@@ -13,7 +13,7 @@ pub fn install(path: &Path) -> io::Result<String> {
 pub fn install_clipboard(source: &Path) -> io::Result<String> {
     use winreg::{RegKey, enums::*};
 
-    let bin = home()?.join(".pi").join("bin");
+    let bin = home()?.join(".pi").join("agent").join("bin");
     copy_clipboard(source, &bin)?;
 
     let (environment, _) = RegKey::predef(HKEY_CURRENT_USER)

@@ -5,10 +5,16 @@ use std::io;
 use std::path::Path;
 use std::process::ExitCode;
 
+#[cfg(windows)]
+mod winui;
+
 fn main() -> ExitCode {
     let (options, interactive) = match Cli::parse().command {
         Some(Action::Install(options)) => (options, false),
-        None => (InstallOptions { all: true, ..Default::default() }, true),
+        None => {
+            detach_console();
+            (InstallOptions { all: true, ..Default::default() }, true)
+        }
     };
 
     #[cfg(windows)]
@@ -22,17 +28,30 @@ fn main() -> ExitCode {
     };
     root.pop();
 
-    if interactive
-        && !dialog(
-            "将为当前用户安装课程环境。建议先关闭 VS Code。\n\
-         确认后可在控制台查看安装进度。",
-            true,
-        )
-    {
+    if interactive && !dialog("将为当前用户安装课程环境。", true) {
         return ExitCode::SUCCESS;
     }
 
-    let results = install(&root, &options);
+    #[cfg(windows)]
+    let progress = if interactive {
+        match winui::Progress::open() {
+            Ok(progress) => Some(progress),
+            Err(err) => return fail(&format!("无法打开安装进度窗口：{err}"), true),
+        }
+    } else {
+        None
+    };
+    let results = install(&root, &options, |_completed, _total, text| {
+        #[cfg(windows)]
+        if let Some(progress) = &progress {
+            progress.update(_completed, _total, text);
+            return;
+        }
+        eprintln!("{text}");
+    });
+    #[cfg(windows)]
+    drop(progress);
+
     let ok = results.iter().all(|(_, result)| result.is_ok());
     let report: Vec<_> = results
         .into_iter()
@@ -41,9 +60,11 @@ fn main() -> ExitCode {
             Err(err) => format!("{name}：失败（{err}）"),
         })
         .collect();
-    let report = report.join("\n\n");
+    let mut report = report.join("\n\n");
+    if options.all || options.vscode {
+        report.push_str("\n\n若 VS Code 已打开，请执行 Developer: Reload Window。");
+    }
     if interactive {
-        detach_console();
         dialog(&report, false);
     } else if ok {
         println!("{report}");
@@ -55,7 +76,6 @@ fn main() -> ExitCode {
 
 fn fail(message: &str, interactive: bool) -> ExitCode {
     if interactive {
-        detach_console();
         dialog(message, false);
     } else {
         eprintln!("{message}");
@@ -63,7 +83,11 @@ fn fail(message: &str, interactive: bool) -> ExitCode {
     ExitCode::FAILURE
 }
 
-fn install(root: &Path, options: &InstallOptions) -> Vec<(&'static str, io::Result<String>)> {
+fn install(
+    root: &Path,
+    options: &InstallOptions,
+    mut show_progress: impl FnMut(usize, usize, &str),
+) -> Vec<(&'static str, io::Result<String>)> {
     type Step = (&'static str, fn(&Path) -> io::Result<String>);
     let mut steps: Vec<Step> = Vec::new();
     if options.all || options.vscode {
@@ -95,7 +119,7 @@ fn install(root: &Path, options: &InstallOptions) -> Vec<(&'static str, io::Resu
         .into_iter()
         .enumerate()
         .map(|(index, (name, run))| {
-            eprintln!("[{}/{total}] 正在安装 {name}…", index + 1);
+            show_progress(index, total, &format!("[{}/{total}] 正在安装 {name}…", index + 1));
             (name, run(root))
         })
         .collect()
@@ -135,7 +159,7 @@ struct InstallOptions {
 }
 
 fn detach_console() {
-    // 双击安装结束后只保留结果弹窗；命令行模式不分离控制台。
+    // 双击时只显示安装窗口，命令行模式仍使用控制台。
     #[cfg(windows)]
     // FreeConsole 不接收指针，只分离当前进程。
     unsafe {

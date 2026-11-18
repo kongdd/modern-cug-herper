@@ -152,6 +152,7 @@ fn installs_pi_extensions_even_if_clipboard_helper_is_missing() -> io::Result<()
     assert_eq!(output.status.code(), Some(1), "{report}");
     assert!(report.contains("pi 扩展：已安装"), "{report}");
     assert!(report.contains("pi 剪贴板工具：失败") && report.contains("clipboard_image.exe"));
+    assert!(root.join("home/.pi/agent/bin").is_dir());
     assert_eq!(
         fs::read_to_string(root.join("home/.pi/agent/extensions/Friday/index.ts"))?,
         "extension"

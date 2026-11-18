@@ -7,7 +7,7 @@ use winreg::{RegKey, enums::*, types::ToRegValue};
 fn installs_clipboard_and_preserves_user_path() -> io::Result<()> {
     let sandbox = tempfile::tempdir()?;
     let source = sandbox.path().join("clipboard_image.exe");
-    let bin = sandbox.path().join("home/.pi/bin");
+    let bin = sandbox.path().join("home/.pi/agent/bin");
     fs::write(&source, b"clipboard helper")?;
     copy_clipboard(&source, &bin)?;
 
