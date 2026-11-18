@@ -1,2 +1,5 @@
 pkgs
 *.zip
+
+/target/
+*lock*

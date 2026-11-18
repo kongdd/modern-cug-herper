@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    # 安装包只面向 Windows x64：含 Win32 API、Windows 版 VSIX 与 Typst。
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - uses: typst-community/setup-typst@v3
+
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
+      - name: Download test archives
+        shell: bash
+        run: |
+          curl --fail --fail-early --location --retry 3 --create-dirs \
+            -o typst/modern-cug-report.typ-master.zip \
+            https://github.com/CUG-hydro/modern-cug-report.typ/archive/refs/heads/master.zip \
+            -o pi/kong-pi-extension-master.zip \
+            https://github.com/kongdd/kong-pi-extension/archive/refs/heads/master.zip
+      - run: cargo test compiles_typst_with_installed_package -- --ignored
+      - run: cargo test unpacks_bundled_pi_extensions -- --ignored
+
+  coverage:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      - run: cargo llvm-cov --lcov --output-path lcov.info
+      - uses: codecov/codecov-action@v5
+        with:
+          files: lcov.info
+          fail_ci_if_error: false
